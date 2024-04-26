@@ -531,19 +531,3 @@ class list_T(static_encoded_type):
 
     def _read(self, bits):
         return [t.read_bits(bits) for t in self.items]
-
-#                                          Obj
-
-class bit_object(object):
-    __slots__ = 'name', '_T', '_type', 'bits'
-    def __init__(self, _type, _T, bits):
-        self.name = _type.__name__
-        self._T = _type
-        self._type = _T
-        self.bits = bits
-
-    def read_bits(self, bits):
-        pass
-
-    def write_bits(self, value):
-        pass
