@@ -1,10 +1,11 @@
-### somewhat important note befor calling any of these classes here dynamic and static types 
 from BitObj import *
+import Types
+_T = Types.__dict__
 
 class DynamicTypes(object):
     __slots__ = ('bit_int', 'bit_str', 'bit_bool', 'bit_none', 'bit_float', 'bit_list', 'bit_tuple', 'bit_dict')
     def __init__(self):
-        [self.__setattr__(slot, globals()[slot]) for slot in self.__slots__]
+        [self.__setattr__(slot, _T[slot]) for slot in self.__slots__]
 
     @property
     def bits(self):
@@ -28,7 +29,7 @@ class DynamicTypes(object):
 class StaticTypes(object):
     __slots__ = ('sint', 'uint', 'sfloat', 'sstr', 'tuple_T', 'list_T', 'dict_T') #, 'keywords', 'T_list_n', 'T_tuple_n', 'T_dict_n')
     def __init__(self, *args):
-        [self.__setattr__(slot, globals()[slot]) for slot in self.__slots__]
+        [self.__setattr__(slot, _T[slot]) for slot in self.__slots__]
         for arg in args:
             self.__getattribute__(arg[0])(arg[1])
 
@@ -41,7 +42,7 @@ class StaticTypes(object):
     @classmethod
     def from_file(cls, file):
         length = DynamicTypes().read_bits(file)
-        return cls(*DynamicType.read_bits(file.cut(length)))
+        return cls(*DynamicTypes().read_bits(file.cut(length)))
 
     @property
     def definition(self):
@@ -77,13 +78,14 @@ class StaticTypes(object):
                 return item
 
 class Objects(object):
-    __slots__ = 'objects'
+    __slots__ = '_obj'
     def __init__(self, *args):
-        self.objects = [self.add_obj(globals()[arg]) for arg in args]
+
+        self._obj = [self.add_obj(globals()[arg]) for arg in args]
 
     @property
     def definition(self):
-        return [obj.name for obj in self.objects]
+        return [obj.name for obj in self._obj]
 
     @property
     def header(self):
@@ -91,31 +93,34 @@ class Objects(object):
         return DynamicTypes().write_bits(len(temp)) + temp
 
     def __len__(self):
-        return len(self.objects)
+        return len(self._obj)
 
     @classmethod
     def from_file(cls, file):
         length = DynamicTypes().read_bits(file)
-        return cls(*DynamicType.read_bits(file.cut(length)))
+        return cls(*DynamicTypes().read_bits(file.cut(length)))
 
     def add_obj(self, obj):
-        self.objects.append(obj())
+        self._obj.append(obj())
 
     @property
     def _iterative(self):
-        return [obj for obj in self.objects]
+        return [obj for obj in self._obj]
 
     @property
     def bits(self):
-        return len(self.objects)
+        return len(self._obj)
 
 class Env(object):
-    def __init__(self, name, file=None):
+    def __init__(self, name):
         self.name = name
+        self.bitfile = ProgressivBitWriter(name)
         self.dynamic = DynamicTypes()
-        if not file is None:
-            self.static = StaticTypes.from_file(file)
-            self.objects = Objects.from_file(file)
+        if len(self.bitfile.get_joined) >= 1:
+            print(self.bitfile)
+            temp = self.bitfile.get_joined
+            self.static = StaticTypes.from_file(temp)
+            self.objects = Objects.from_file(temp)
         else:
             self.static = StaticTypes()
             self.objects = Objects()
@@ -156,14 +161,19 @@ class Env(object):
             if t.name == key:
                 return t
 
+    @property
+    def head(self):
+        return self.static.header + self.objects.header
+
     def write(self):
-        temp = bit()
+        temp = self.head
         for _t, item in self.buffer:
             for i, T in enumerate(self.listing):
                 if T.name == _t:
+                    #tt = T.write_bits(item)
                     temp += i2b(i, self.bits)
                     temp += T.write_bits(item)
-        return temp
+        temp.writef(self.name)
 
     def read(self, bits):
         arr = []
@@ -180,4 +190,3 @@ class Env(object):
                 if T.name == _t:
                     temp += T.write_bits(item)
         return self.dynamic.write_bits(len(temp)) + temp
-
